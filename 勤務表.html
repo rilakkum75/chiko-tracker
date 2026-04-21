@@ -882,6 +882,10 @@ function renderWeekly() {
       entriesHtml += `</div>`;
     }
 
+    const locOptions = Object.entries(LOCS).map(([id, loc]) =>
+      `<option value="${id}">${loc.emoji} ${loc.label}</option>`
+    ).join("");
+
     card.innerHTML = `
       <div class="weekly-day-header">
         <span class="weekly-day-label" style="color:${dayColor}">${d.getMonth()+1}/${d.getDate()}（${dayName}）</span>
@@ -897,6 +901,26 @@ function renderWeekly() {
           <span class="weekly-memo-saved" id="saved_${key}" style="display:none">保存しました ✓</span>
         </div>
       ` : ""}
+      <button class="manual-add-btn" onclick="toggleManualForm('${key}')">＋ 手動で記録を追加</button>
+      <div class="manual-form" id="manualForm_${key}" style="display:none">
+        <div class="manual-form-row">
+          <label>開始</label>
+          <input type="time" class="manual-time-input" id="manualStart_${key}">
+        </div>
+        <div class="manual-form-row">
+          <label>終了</label>
+          <input type="time" class="manual-time-input" id="manualEnd_${key}">
+        </div>
+        <div class="manual-form-row">
+          <label>場所</label>
+          <select class="manual-loc-select" id="manualLoc_${key}">${locOptions}</select>
+        </div>
+        <div id="manualError_${key}" class="manual-error" style="display:none">終了は開始より後にしてください</div>
+        <div class="manual-form-btns">
+          <button class="manual-submit-btn" onclick="submitManual('${key}')">追加する</button>
+          <button class="manual-cancel-btn" onclick="toggleManualForm('${key}')">キャンセル</button>
+        </div>
+      </div>
     `;
     list.appendChild(card);
   }
@@ -912,6 +936,39 @@ function saveMemo(key) {
     saved.style.display = "";
     setTimeout(() => { saved.style.display = "none"; }, 1500);
   }
+}
+
+function toggleManualForm(key) {
+  const form = document.getElementById("manualForm_" + key);
+  form.style.display = form.style.display === "none" ? "" : "none";
+  const err = document.getElementById("manualError_" + key);
+  if(err) err.style.display = "none";
+}
+
+function submitManual(key) {
+  const startVal = document.getElementById("manualStart_" + key).value;
+  const endVal   = document.getElementById("manualEnd_" + key).value;
+  const locId    = document.getElementById("manualLoc_" + key).value;
+  const err      = document.getElementById("manualError_" + key);
+
+  if(!startVal || !endVal) { err.textContent="開始と終了を入力してください"; err.style.display=""; return; }
+
+  const [sy,sm,sd] = key.split("-").map(Number);
+  const [sh,smin]  = startVal.split(":").map(Number);
+  const [eh,emin]  = endVal.split(":").map(Number);
+
+  const startTime = new Date(sy, sm-1, sd, sh, smin, 0).getTime();
+  let   endTime   = new Date(sy, sm-1, sd, eh, emin, 0).getTime();
+
+  if(endTime <= startTime) { err.textContent="終了は開始より後にしてください"; err.style.display=""; return; }
+
+  err.style.display = "none";
+  if(!logs[key]) logs[key] = [];
+  logs[key].push({ locationId: locId, startTime, endTime, duration: endTime - startTime });
+  logs[key].sort((a,b) => a.startTime - b.startTime);
+  saveLogs();
+  renderWeekly();
+  render();
 }
 
 function prevWeek() { weekBase.setDate(weekBase.getDate() - 7); renderWeekly(); }
