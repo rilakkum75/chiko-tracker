@@ -922,5 +922,71 @@ selectLoc("clinic");
 renderName();
 render();
 </script>
+
+<!-- Firebase同期 -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
+  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAeAH_VkJieqZyK1pg62n25aSa8IIgS7xo",
+    authDomain: "work-bcaf3.firebaseapp.com",
+    databaseURL: "https://work-bcaf3-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "work-bcaf3",
+    storageBucket: "work-bcaf3.firebasestorage.app",
+    messagingSenderId: "767679616408",
+    appId: "1:767679616408:web:f9ca20017dfe5cc56987ed"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const KEYS = ["chiko_v5", "chiko_memo_v5", "chiko_name_v5", "chiko_pos_v5"];
+  let isRemoteUpdate = false;
+
+  // Firebaseにデータを保存
+  function syncToFirebase() {
+    if (isRemoteUpdate) return;
+    const data = {};
+    KEYS.forEach(k => {
+      const v = localStorage.getItem(k);
+      if (v) data[k.replace(/[.$[\]#/]/g, "_")] = v;
+    });
+    set(ref(db, "chikoData"), data);
+  }
+
+  // Firebaseからデータを受信して反映
+  onValue(ref(db, "chikoData"), (snapshot) => {
+    const data = snapshot.val();
+    if (!data) return;
+    let changed = false;
+    Object.entries(data).forEach(([k, v]) => {
+      const key = k.replace(/_/g, (m, i, s) => {
+        // chiko_v5 など元のキーに戻す
+        return "_";
+      });
+      // キーをそのまま使う（元々アンダースコアのため）
+      if (localStorage.getItem(k) !== v) {
+        isRemoteUpdate = true;
+        localStorage.setItem(k, v);
+        changed = true;
+      }
+    });
+    if (changed) {
+      setTimeout(() => { isRemoteUpdate = false; location.reload(); }, 300);
+    } else {
+      isRemoteUpdate = false;
+    }
+  });
+
+  // 3秒ごとにFirebaseへ保存
+  setInterval(syncToFirebase, 3000);
+
+  // localStorage変更時にも即時保存
+  const origSetItem = localStorage.setItem.bind(localStorage);
+  localStorage.setItem = function(key, value) {
+    origSetItem(key, value);
+    if (!isRemoteUpdate) syncToFirebase();
+  };
+</script>
 </body>
 </html>
