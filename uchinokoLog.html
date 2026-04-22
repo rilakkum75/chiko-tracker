@@ -32,9 +32,10 @@ body {
   box-shadow: 0 4px 16px rgba(0,0,0,.1);
   background: #faf0ec;
   display: flex; align-items: center; justify-content: center;
-  cursor: pointer;
+  cursor: grab; position: relative; flex-shrink: 0;
+  user-select: none;
 }
-.pet-photo img { width: 150%; height: 150%; object-fit: cover; display: block; pointer-events: none; user-select: none; }
+.pet-photo img { position: absolute; width: 150%; height: 150%; object-fit: cover; pointer-events: none; user-select: none; top: -25px; left: -25px; }
 .photo-edit-btn {
   position: absolute; bottom: 2px; right: 2px;
   width: 24px; height: 24px; border-radius: 50%;
@@ -300,7 +301,7 @@ body {
         <circle cx="20.8" cy="16.2" r=".8" fill="white"/>
         <circle cx="28.8" cy="16.2" r=".8" fill="white"/>
       </svg>
-      <img id="petPhotoImg" style="display:none; position:absolute; width:150%; height:150%; object-fit:cover; border-radius:0; top:0; left:0;">
+      <img id="petPhotoImg" style="display:none; position:absolute; width:150%; height:150%; object-fit:cover; top:-25px; left:-25px;">
     </div>
     <button class="photo-edit-btn" onclick="document.getElementById('petPhotoInput').click()">
       <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -537,7 +538,6 @@ function initPetInfo() {
     img.style.top  = (-(petInfo.pos.y||50)/100*50)+"px";
     document.getElementById("petPhotoSvg").style.display = "none";
   }
-  initPhotoDrag();
   const now = new Date();
   document.getElementById("headerDate").textContent =
     `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日（${DAY_JP[now.getDay()]}）`;
@@ -975,6 +975,7 @@ function initPhotoDrag() {
 
 // ── Init ──
 initPetInfo();
+initPhotoDrag();
 renderToday();
 </script>
 
