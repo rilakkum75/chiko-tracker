@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>うちの子log</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #faf8f5;
+  font-family: 'Hiragino Maru Gothic ProN', 'Noto Sans JP', sans-serif;
+  max-width: 420px;
+  margin: 0 auto;
+  padding-bottom: 80px;
+}
+
+/* HEADER */
+.header {
+  background: white;
+  border-radius: 0 0 32px 32px;
+  padding: 20px 20px 18px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 24px rgba(0,0,0,.06);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.pet-photo-wrap { position: relative; width: 80px; height: 80px; flex-shrink: 0; }
+.pet-photo {
+  width: 80px; height: 80px; border-radius: 50%;
+  overflow: hidden; border: 3px solid #f0e8e0;
+  box-shadow: 0 4px 16px rgba(0,0,0,.1);
+  background: #faf0ec;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.pet-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-edit-btn {
+  position: absolute; bottom: 2px; right: 2px;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: white; border: 1.5px solid #e8ddd8;
+  box-shadow: 0 2px 8px rgba(0,0,0,.12);
+  cursor: pointer; font-size: 11px;
+  display: flex; align-items: center; justify-content: center;
+}
+.header-info { flex: 1; }
+.app-label { font-size: 11px; font-weight: 700; color: #c4a898; letter-spacing: .1em; margin-bottom: 2px; }
+.pet-name-row { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+.pet-name { font-size: 20px; font-weight: 700; color: #3a2820; cursor: pointer; }
+.pet-name-input {
+  font-size: 18px; font-weight: 700; color: #3a2820;
+  border: none; border-bottom: 1.5px solid #d4856a;
+  outline: none; background: transparent; width: 140px;
+  font-family: inherit;
+}
+.edit-btn { background: none; border: none; cursor: pointer; font-size: 13px; color: #d4c0b8; }
+.pet-breed { font-size: 12px; color: #c4a898; cursor: pointer; }
+.pet-breed-input {
+  font-size: 12px; color: #c4a898;
+  border: none; border-bottom: 1px solid #d4856a;
+  outline: none; background: transparent; width: 120px;
+  font-family: inherit;
+}
+.today-date { font-size: 12px; color: #c4a898; margin-top: 4px; }
+
+/* TABS */
+.tabs {
+  display: flex; margin: 0 16px 14px;
+  border-bottom: 1px solid #f0ebe4;
+}
+.tab-btn {
+  flex: 1; padding: 10px 0; border: none; background: none;
+  cursor: pointer; font-family: inherit;
+  font-size: 11px; font-weight: 700; letter-spacing: .06em;
+  color: #c4b0a8; border-bottom: 2px solid transparent;
+  margin-bottom: -1px; transition: all .15s;
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+}
+.tab-btn.active { color: #d4856a; border-bottom-color: #d4856a; }
+
+.content { padding: 0 16px; }
+
+/* DATE NAV */
+.date-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.date-nav-btn { background: none; border: none; font-size: 18px; color: #d4856a; cursor: pointer; padding: 4px 8px; }
+.date-nav-title { font-weight: 700; font-size: 15px; color: #3a2820; }
+
+/* SECTION CARD */
+.section-card {
+  background: white; border-radius: 18px; padding: 16px;
+  box-shadow: 0 2px 16px rgba(0,0,0,.04); margin-bottom: 12px;
+}
+.section-title { font-size: 11px; font-weight: 700; color: #c4a898; letter-spacing: .1em; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+
+/* SVGアイコン */
+.icon-paw { display: inline-block; }
+
+/* CHECK */
+.check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.check-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px; border-radius: 12px;
+  border: 1.5px solid #f0e8e2; background: white;
+  cursor: pointer; transition: all .15s; user-select: none;
+}
+.check-item.checked { border-color: #d4856a; background: #fdf0ec; }
+.check-svg { width: 22px; height: 22px; flex-shrink: 0; }
+.check-label { font-size: 13px; font-weight: 700; color: #c4b0a8; }
+.check-item.checked .check-label { color: #d4856a; }
+.check-mark { margin-left: auto; font-size: 14px; color: #d4856a; opacity: 0; transition: opacity .15s; }
+.check-item.checked .check-mark { opacity: 1; }
+
+/* MEAL */
+.meal-entry {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 0; border-top: 1px solid #f5ede8;
+}
+.meal-entry:first-child { border-top: none; padding-top: 0; }
+.meal-time-input {
+  border: none; background: #faf5f2; border-radius: 8px;
+  padding: 5px 8px; font-size: 12px; color: #7a6560;
+  font-family: inherit; width: 85px; outline: none;
+}
+.meal-food-input {
+  flex: 1; border: none; background: #faf5f2; border-radius: 8px;
+  padding: 5px 8px; font-size: 12px; color: #7a6560;
+  font-family: inherit; outline: none;
+}
+.meal-food-input::placeholder { color: #c4b0a8; }
+.meal-gram-wrap { display: flex; align-items: center; gap: 2px; }
+.meal-gram-input {
+  border: none; background: #faf5f2; border-radius: 8px;
+  padding: 5px 6px; font-size: 12px; color: #7a6560;
+  font-family: inherit; width: 52px; outline: none; text-align: right;
+}
+.meal-gram-label { font-size: 11px; color: #c4a898; }
+.meal-del-btn { background: none; border: none; color: #d4c0b8; cursor: pointer; font-size: 16px; padding: 2px 4px; }
+.add-meal-btn {
+  width: 100%; margin-top: 10px; padding: 8px;
+  border: 1.5px dashed #e8ddd8; border-radius: 10px;
+  background: none; color: #c4b0a8; font-size: 12px;
+  font-family: inherit; cursor: pointer; transition: all .2s;
+}
+.add-meal-btn:active { border-color: #d4856a; color: #d4856a; }
+
+/* NOTE */
+.note-textarea {
+  width: 100%; border: 1.5px solid #f0ebe4; border-radius: 10px;
+  padding: 10px 12px; font-family: inherit; font-size: 13px;
+  color: #7a6560; background: #faf8f5; resize: none;
+  min-height: 80px; outline: none; transition: border .2s;
+}
+.note-textarea:focus { border-color: #d4856a; }
+.note-textarea::placeholder { color: #c4b0a8; }
+.save-btn {
+  margin-top: 8px; padding: 6px 16px; border: none;
+  background: #d4856a; color: white; border-radius: 99px;
+  font-size: 12px; font-weight: 700; cursor: pointer;
+  font-family: inherit;
+}
+.saved-msg { font-size: 11px; color: #9aabbf; margin-top: 6px; display: none; }
+
+/* PHOTOS */
+.photo-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; }
+.photo-thumb {
+  aspect-ratio: 1; border-radius: 10px; overflow: hidden;
+  background: #f5ede8; position: relative;
+}
+.photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.photo-thumb-del {
+  position: absolute; top: 4px; right: 4px;
+  background: rgba(0,0,0,.4); color: white; border: none;
+  border-radius: 50%; width: 20px; height: 20px;
+  font-size: 11px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.add-photo-btn {
+  aspect-ratio: 1; border-radius: 10px;
+  border: 1.5px dashed #e8ddd8; background: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; cursor: pointer; color: #c4b0a8; font-size: 11px;
+  font-family: inherit;
+}
+
+/* CALENDAR */
+.cal-card {
+  background: white; border-radius: 20px; padding: 16px;
+  box-shadow: 0 2px 20px rgba(0,0,0,.05); margin-bottom: 16px;
+}
+.cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.cal-nav-btn { background: none; border: none; font-size: 18px; color: #d4856a; cursor: pointer; padding: 4px 8px; }
+.cal-title { font-weight: 700; font-size: 17px; color: #3a2820; }
+.cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; }
+.cal-day-label { text-align: center; font-size: 11px; font-weight: 600; padding: 2px 0; margin-bottom: 4px; color: #c4a898; }
+.cal-day {
+  aspect-ratio: 1; border-radius: 10px; border: none;
+  background: transparent; cursor: pointer; padding: 2px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  font-size: 13px; color: #3a2820; transition: all .15s;
+}
+.cal-day.today { outline: 2px solid #f0c8b0; outline-offset: -2px; background: #fdf8f5; }
+.cal-day.selected { outline: 2px solid #d4856a; outline-offset: -2px; background: #fdf0ec; }
+.cal-dot { width: 4px; height: 4px; border-radius: 50%; background: #d4856a; }
+
+/* VACCINE */
+.vaccine-card {
+  background: white; border-radius: 18px; padding: 16px;
+  box-shadow: 0 2px 16px rgba(0,0,0,.04); margin-bottom: 12px;
+}
+.vaccine-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.vaccine-name { font-size: 15px; font-weight: 700; color: #3a2820; }
+.vaccine-date { font-size: 12px; color: #d4856a; font-weight: 700; margin-top: 2px; }
+.vaccine-next { font-size: 11px; color: #c4a898; margin-top: 2px; }
+.vaccine-hospital { font-size: 12px; color: #a89488; margin-top: 4px; }
+.vaccine-note { font-size: 12px; color: #a89488; margin-top: 4px; font-style: italic; }
+.vaccine-del-btn { background: none; border: none; color: #d4c0b8; cursor: pointer; font-size: 16px; padding: 2px; }
+.vaccine-photos { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.vaccine-photo-thumb {
+  width: 64px; height: 64px; border-radius: 10px; overflow: hidden;
+  background: #f5ede8; position: relative; flex-shrink: 0;
+}
+.vaccine-photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.vaccine-photo-del {
+  position: absolute; top: 2px; right: 2px;
+  background: rgba(0,0,0,.4); color: white; border: none;
+  border-radius: 50%; width: 16px; height: 16px;
+  font-size: 9px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.add-vaccine-btn {
+  width: 100%; padding: 14px; border: 1.5px dashed #e8ddd8;
+  border-radius: 14px; background: none; color: #c4b0a8;
+  font-size: 13px; font-family: inherit; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+
+/* VACCINE FORM */
+.vaccine-form {
+  background: white; border-radius: 18px; padding: 16px;
+  box-shadow: 0 2px 16px rgba(0,0,0,.04); margin-bottom: 12px;
+  border: 1.5px solid #f0c8b0;
+}
+.vaccine-form-title { font-size: 13px; font-weight: 700; color: #d4856a; margin-bottom: 12px; }
+.form-row { margin-bottom: 10px; }
+.form-label { font-size: 11px; font-weight: 700; color: #c4a898; letter-spacing: .06em; margin-bottom: 4px; display: block; }
+.form-input {
+  width: 100%; border: 1.5px solid #f0ebe4; border-radius: 8px;
+  padding: 8px 10px; font-family: inherit; font-size: 13px;
+  color: #7a6560; background: #faf8f5; outline: none;
+}
+.form-input:focus { border-color: #d4856a; }
+.form-textarea {
+  width: 100%; border: 1.5px solid #f0ebe4; border-radius: 8px;
+  padding: 8px 10px; font-family: inherit; font-size: 13px;
+  color: #7a6560; background: #faf8f5; outline: none;
+  resize: none; min-height: 60px;
+}
+.form-textarea:focus { border-color: #d4856a; }
+.form-btns { display: flex; gap: 8px; margin-top: 12px; }
+.form-submit-btn {
+  flex: 1; padding: 10px; border: none; border-radius: 10px;
+  background: #d4856a; color: white; font-size: 13px; font-weight: 700;
+  font-family: inherit; cursor: pointer;
+}
+.form-cancel-btn {
+  padding: 10px 16px; border: 1.5px solid #e8ddd8; border-radius: 10px;
+  background: white; color: #c4b0a8; font-size: 13px;
+  font-family: inherit; cursor: pointer;
+}
+.vaccine-form-photo-grid { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.add-form-photo-btn {
+  width: 56px; height: 56px; border-radius: 10px;
+  border: 1.5px dashed #e8ddd8; background: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; cursor: pointer; color: #c4b0a8; font-size: 10px;
+  font-family: inherit;
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="pet-photo-wrap">
+    <div class="pet-photo" id="petPhoto" onclick="document.getElementById('petPhotoInput').click()">
+      <svg id="petPhotoSvg" width="48" height="48" viewBox="0 0 48 48" fill="none">
+        <ellipse cx="24" cy="28" rx="14" ry="12" fill="#f0c8b0"/>
+        <circle cx="24" cy="18" r="10" fill="#f0c8b0"/>
+        <ellipse cx="14" cy="10" rx="5" ry="7" fill="#f0c8b0"/>
+        <ellipse cx="34" cy="10" rx="5" ry="7" fill="#f0c8b0"/>
+        <circle cx="20" cy="17" r="2.5" fill="#3a2820"/>
+        <circle cx="28" cy="17" r="2.5" fill="#3a2820"/>
+        <ellipse cx="24" cy="22" rx="3" ry="2" fill="#d4856a"/>
+        <circle cx="20.8" cy="16.2" r=".8" fill="white"/>
+        <circle cx="28.8" cy="16.2" r=".8" fill="white"/>
+      </svg>
+      <img id="petPhotoImg" style="display:none; width:100%; height:100%; object-fit:cover; border-radius:50%;">
+    </div>
+    <button class="photo-edit-btn" onclick="document.getElementById('petPhotoInput').click()">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <path d="M8 2L10 4L4 10H2V8L8 2Z" stroke="#d4856a" stroke-width="1.2" fill="none"/>
+      </svg>
+    </button>
+    <input type="file" id="petPhotoInput" accept="image/*" style="display:none" onchange="handlePetPhoto(event)">
+  </div>
+  <div class="header-info">
+    <div class="app-label">うちの子log</div>
+    <div class="pet-name-row">
+      <span class="pet-name" id="petNameText" onclick="startEditPetName()">名前を入力</span>
+      <input class="pet-name-input" id="petNameInput" style="display:none" placeholder="ペットの名前"
+        onblur="savePetName()" onkeydown="if(event.key==='Enter')savePetName()">
+      <button class="edit-btn" onclick="startEditPetName()">✎</button>
+    </div>
+    <div class="pet-breed" id="petBreedText" onclick="startEditBreed()">種類・品種</div>
+    <input class="pet-breed-input" id="petBreedInput" style="display:none" placeholder="例：チワワ"
+      onblur="saveBreed()" onkeydown="if(event.key==='Enter')saveBreed()">
+    <div class="today-date" id="headerDate"></div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab-btn active" id="tab-today" onclick="switchTab('today')">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1" y="3" width="11" height="9" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M4 1v3M9 1v3M1 6h11" stroke="currentColor" stroke-width="1.2"/></svg>
+    今日
+  </button>
+  <button class="tab-btn" id="tab-calendar" onclick="switchTab('calendar')">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1" y="2" width="11" height="10" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M1 5h11M4 1v2M9 1v2" stroke="currentColor" stroke-width="1.2"/><circle cx="4.5" cy="8" r="1" fill="currentColor"/><circle cx="6.5" cy="8" r="1" fill="currentColor"/><circle cx="8.5" cy="8" r="1" fill="currentColor"/></svg>
+    カレンダー
+  </button>
+  <button class="tab-btn" id="tab-vaccine" onclick="switchTab('vaccine')">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M4 9L9 4M6.5 1.5L11.5 6.5M2 7l1.5 1.5M7 11.5L8.5 10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="6.5" cy="6.5" r="2" stroke="currentColor" stroke-width="1.2"/></svg>
+    ワクチン
+  </button>
+</div>
+
+<!-- TODAY TAB -->
+<div class="content" id="content-today">
+  <div class="date-nav">
+    <button class="date-nav-btn" onclick="prevDay()">‹</button>
+    <span class="date-nav-title" id="currentDateTitle"></span>
+    <button class="date-nav-btn" onclick="nextDay()">›</button>
+  </div>
+
+  <!-- チェック -->
+  <div class="section-card">
+    <div class="section-title">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7l3.5 3.5L12 3" stroke="#c4a898" stroke-width="1.5" stroke-linecap="round"/></svg>
+      TODAY'S CHECK
+    </div>
+    <div class="check-grid">
+      <div class="check-item" id="check-appetite" onclick="toggleCheck('appetite')">
+        <svg class="check-svg" viewBox="0 0 22 22" fill="none">
+          <!-- お皿 -->
+          <ellipse cx="11" cy="14" rx="7" ry="1.5" fill="#f0c8b0"/>
+          <path d="M4 14c0-3.9 3.1-7 7-7s7 3.1 7 7" fill="#f0c8b0"/>
+          <ellipse cx="11" cy="14" rx="7" ry="1.5" fill="#d4856a" opacity=".3"/>
+          <!-- フォーク -->
+          <path d="M5 4v4M4 4v3M6 4v3M5 7v6" stroke="#d4856a" stroke-width="1.1" stroke-linecap="round"/>
+          <!-- ナイフ -->
+          <path d="M17 4c0 0-1 2-1 4v6" stroke="#d4856a" stroke-width="1.1" stroke-linecap="round"/>
+        </svg>
+        <span class="check-label">食欲</span>
+        <span class="check-mark">✓</span>
+      </div>
+      <div class="check-item" id="check-energy" onclick="toggleCheck('energy')">
+        <svg class="check-svg" viewBox="0 0 22 22" fill="none">
+          <path d="M11 18s-8-5-8-10a5 5 0 0110 0 5 5 0 0110 0c0 5-10 10-10 10z" fill="#f0c8b0" stroke="#d4856a" stroke-width="1.2"/>
+          <path d="M8 10c0-1.5 1-2.5 2-2.5" stroke="white" stroke-width=".8" stroke-linecap="round"/>
+        </svg>
+        <span class="check-label">元気</span>
+        <span class="check-mark">✓</span>
+      </div>
+      <div class="check-item" id="check-poop" onclick="toggleCheck('poop')">
+        <svg class="check-svg" viewBox="0 0 22 22" fill="none">
+          <ellipse cx="11" cy="16" rx="7" ry="3.5" fill="#c4956a"/>
+          <ellipse cx="11" cy="13" rx="5.5" ry="3" fill="#c4956a"/>
+          <ellipse cx="11" cy="10.5" rx="4" ry="2.5" fill="#c4956a"/>
+          <path d="M9 8c0-2 4-5 2-7" stroke="#c4956a" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+        <span class="check-label">うんち</span>
+        <span class="check-mark">✓</span>
+      </div>
+      <div class="check-item" id="check-pee" onclick="toggleCheck('pee')">
+        <svg class="check-svg" viewBox="0 0 22 22" fill="none">
+          <path d="M11 3c0 0-6 7-6 11a6 6 0 0012 0c0-4-6-11-6-11z" fill="#b8d4f0"/>
+          <path d="M8 15c0 2 1.5 3 3 3" stroke="white" stroke-width="1" stroke-linecap="round"/>
+        </svg>
+        <span class="check-label">おしっこ</span>
+        <span class="check-mark">✓</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ごはん -->
+  <div class="section-card">
+    <div class="section-title">
+      🍚 ごはん
+    </div>
+    <div id="mealList"></div>
+    <button class="add-meal-btn" onclick="addMeal()">＋ ごはんを追加</button>
+  </div>
+
+  <!-- 様子 -->
+  <div class="section-card">
+    <div class="section-title">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 3h10M2 7h7M2 11h5" stroke="#c4a898" stroke-width="1.2" stroke-linecap="round"/></svg>
+      様子・メモ
+    </div>
+    <textarea class="note-textarea" id="noteInput" placeholder="今日の様子を書こう…"></textarea>
+    <button class="save-btn" onclick="saveNote()">保存</button>
+    <div class="saved-msg" id="noteSaved">保存しました ✓</div>
+  </div>
+
+  <!-- 写真 -->
+  <div class="section-card">
+    <div class="section-title">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="3" width="12" height="9" rx="2" stroke="#c4a898" stroke-width="1.2"/><circle cx="7" cy="7.5" r="2.2" stroke="#c4a898" stroke-width="1.2"/><path d="M5 3l.8-1.5h2.4L9 3" stroke="#c4a898" stroke-width="1.2"/></svg>
+      写真
+    </div>
+    <div class="photo-grid" id="photoGrid">
+      <button class="add-photo-btn" onclick="document.getElementById('photoInput').click()">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="#c4b0a8" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span>追加</span>
+      </button>
+    </div>
+    <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="handlePhoto(event)">
+  </div>
+</div>
+
+<!-- CALENDAR TAB -->
+<div class="content" id="content-calendar" style="display:none">
+  <div class="cal-card">
+    <div class="cal-nav">
+      <button class="cal-nav-btn" onclick="prevMonth()">‹</button>
+      <span class="cal-title" id="calTitle"></span>
+      <button class="cal-nav-btn" onclick="nextMonth()">›</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+  </div>
+</div>
+
+<!-- VACCINE TAB -->
+<div class="content" id="content-vaccine" style="display:none">
+  <div id="vaccineList"></div>
+  <div id="vaccineFormWrap" style="display:none">
+    <div class="vaccine-form">
+      <div class="vaccine-form-title">＋ ワクチン記録を追加</div>
+      <div class="form-row">
+        <label class="form-label">ワクチン名</label>
+        <input class="form-input" id="vName" placeholder="例：混合ワクチン、狂犬病">
+      </div>
+      <div class="form-row">
+        <label class="form-label">接種日</label>
+        <input class="form-input" id="vDate" type="date" style="width:auto;max-width:180px;">
+      </div>
+      <div class="form-row">
+        <label class="form-label">次回予定日</label>
+        <input class="form-input" id="vNext" type="date" style="width:auto;max-width:180px;">
+      </div>
+      <div class="form-row">
+        <label class="form-label">病院名</label>
+        <input class="form-input" id="vHospital" placeholder="例：〇〇動物病院">
+      </div>
+      <div class="form-row">
+        <label class="form-label">メモ</label>
+        <textarea class="form-textarea" id="vNote" placeholder="副反応・注意事項など"></textarea>
+      </div>
+      <div class="form-row">
+        <label class="form-label">写真</label>
+        <div class="vaccine-form-photo-grid" id="vPhotoGrid">
+          <button class="add-form-photo-btn" onclick="document.getElementById('vPhotoInput').click()">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="#c4b0a8" stroke-width="1.4" stroke-linecap="round"/></svg>
+            <span>追加</span>
+          </button>
+        </div>
+        <input type="file" id="vPhotoInput" accept="image/*" style="display:none" onchange="handleVaccinePhoto(event)">
+      </div>
+      <div class="form-btns">
+        <button class="form-submit-btn" onclick="submitVaccine()">保存する</button>
+        <button class="form-cancel-btn" onclick="cancelVaccineForm()">キャンセル</button>
+      </div>
+    </div>
+  </div>
+  <button class="add-vaccine-btn" id="addVaccineBtn" onclick="showVaccineForm()">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v12M2 8h12" stroke="#c4b0a8" stroke-width="1.5" stroke-linecap="round"/></svg>
+    ワクチン記録を追加
+  </button>
+</div>
+
+<script>
+const SK = "uchinokoLog_v1";
+const PET_KEY = "uchinokoLog_pet_v1";
+const VAC_KEY = "uchinokoLog_vac_v1";
+const PAD = n => String(n).padStart(2,"0");
+const toKey = d => `${d.getFullYear()}-${PAD(d.getMonth()+1)}-${PAD(d.getDate())}`;
+const DAY_JP = ["日","月","火","水","木","金","土"];
+
+let records = JSON.parse(localStorage.getItem(SK) || "{}");
+let petInfo = JSON.parse(localStorage.getItem(PET_KEY) || '{"name":"","breed":"","photo":null}');
+let vaccines = JSON.parse(localStorage.getItem(VAC_KEY) || "[]");
+let currentDate = new Date();
+let calBase = new Date();
+let vTempPhotos = [];
+
+const saveRecords = () => { localStorage.setItem(SK, JSON.stringify(records)); };
+const savePetInfo = () => { localStorage.setItem(PET_KEY, JSON.stringify(petInfo)); };
+const saveVaccines = () => { localStorage.setItem(VAC_KEY, JSON.stringify(vaccines)); };
+
+function getRecord(key) {
+  if (!records[key]) records[key] = { checks:{}, meals:[], note:"", photos:[] };
+  return records[key];
+}
+
+// ── Pet ──
+function initPetInfo() {
+  document.getElementById("petNameText").textContent = petInfo.name || "名前を入力";
+  document.getElementById("petBreedText").textContent = petInfo.breed || "種類・品種";
+  if (petInfo.photo) {
+    document.getElementById("petPhotoImg").src = petInfo.photo;
+    document.getElementById("petPhotoImg").style.display = "block";
+    document.getElementById("petPhotoSvg").style.display = "none";
+  }
+  const now = new Date();
+  document.getElementById("headerDate").textContent =
+    `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日（${DAY_JP[now.getDay()]}）`;
+}
+function startEditPetName() {
+  document.getElementById("petNameText").style.display="none";
+  const i = document.getElementById("petNameInput");
+  i.style.display=""; i.value=petInfo.name; i.focus();
+}
+function savePetName() {
+  petInfo.name = document.getElementById("petNameInput").value;
+  savePetInfo();
+  document.getElementById("petNameText").textContent = petInfo.name || "名前を入力";
+  document.getElementById("petNameText").style.display="";
+  document.getElementById("petNameInput").style.display="none";
+}
+function startEditBreed() {
+  document.getElementById("petBreedText").style.display="none";
+  const i = document.getElementById("petBreedInput");
+  i.style.display=""; i.value=petInfo.breed; i.focus();
+}
+function saveBreed() {
+  petInfo.breed = document.getElementById("petBreedInput").value;
+  savePetInfo();
+  document.getElementById("petBreedText").textContent = petInfo.breed || "種類・品種";
+  document.getElementById("petBreedText").style.display="";
+  document.getElementById("petBreedInput").style.display="none";
+}
+function handlePetPhoto(e) {
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    petInfo.photo = ev.target.result; savePetInfo();
+    document.getElementById("petPhotoImg").src = ev.target.result;
+    document.getElementById("petPhotoImg").style.display="block";
+    document.getElementById("petPhotoSvg").style.display="none";
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── Tabs ──
+function switchTab(tab) {
+  ["today","calendar","vaccine"].forEach(t => {
+    document.getElementById("content-"+t).style.display = t===tab ? "" : "none";
+    document.getElementById("tab-"+t).className = "tab-btn" + (t===tab ? " active" : "");
+  });
+  if(tab==="calendar") renderCalendar();
+  if(tab==="vaccine") renderVaccines();
+}
+
+// ── Date Nav ──
+function prevDay() { currentDate.setDate(currentDate.getDate()-1); renderToday(); }
+function nextDay() {
+  const next = new Date(currentDate); next.setDate(next.getDate()+1);
+  if(next <= new Date()) { currentDate = next; renderToday(); }
+}
+
+// ── Checks ──
+function toggleCheck(key) {
+  const dk = toKey(currentDate);
+  const rec = getRecord(dk);
+  rec.checks[key] = !rec.checks[key];
+  saveRecords();
+  renderChecks(rec);
+}
+function renderChecks(rec) {
+  ["appetite","energy","poop","pee"].forEach(k => {
+    const el = document.getElementById("check-"+k);
+    el.classList.toggle("checked", !!rec.checks[k]);
+  });
+}
+
+// ── Meals ──
+function addMeal() {
+  const dk = toKey(currentDate);
+  const rec = getRecord(dk);
+  rec.meals.push({time:"",food:"",gram:""});
+  saveRecords(); renderMeals(rec,dk);
+}
+function delMeal(dk,idx) {
+  records[dk].meals.splice(idx,1);
+  saveRecords(); renderMeals(records[dk],dk);
+}
+function updateMeal(dk,idx,field,val) {
+  if(!records[dk]) return;
+  records[dk].meals[idx][field]=val; saveRecords();
+}
+function renderMeals(rec,dk) {
+  const list = document.getElementById("mealList");
+  list.innerHTML="";
+  rec.meals.forEach((m,i) => {
+    const div = document.createElement("div");
+    div.className="meal-entry";
+    div.innerHTML=`
+      <input class="meal-time-input" type="time" value="${m.time}"
+        onchange="updateMeal('${dk}',${i},'time',this.value)">
+      <input class="meal-food-input" type="text" value="${m.food}" placeholder="フード名"
+        oninput="updateMeal('${dk}',${i},'food',this.value)">
+      <div class="meal-gram-wrap">
+        <input class="meal-gram-input" type="number" value="${m.gram}" placeholder="0"
+          oninput="updateMeal('${dk}',${i},'gram',this.value)">
+        <span class="meal-gram-label">g</span>
+      </div>
+      <button class="meal-del-btn" onclick="delMeal('${dk}',${i})">×</button>`;
+    list.appendChild(div);
+  });
+}
+
+// ── Note ──
+function saveNote() {
+  const dk = toKey(currentDate);
+  getRecord(dk).note = document.getElementById("noteInput").value;
+  saveRecords();
+  const msg = document.getElementById("noteSaved");
+  msg.style.display=""; setTimeout(()=>msg.style.display="none",1500);
+}
+
+// ── Photos ──
+function handlePhoto(e) {
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const dk = toKey(currentDate);
+    getRecord(dk).photos.push(ev.target.result);
+    saveRecords(); renderPhotos(records[dk],dk);
+  };
+  reader.readAsDataURL(file); e.target.value="";
+}
+function delPhoto(dk,idx) {
+  records[dk].photos.splice(idx,1); saveRecords(); renderPhotos(records[dk],dk);
+}
+function renderPhotos(rec,dk) {
+  const grid = document.getElementById("photoGrid");
+  grid.innerHTML="";
+  rec.photos.forEach((p,i) => {
+    const div = document.createElement("div");
+    div.className="photo-thumb";
+    div.innerHTML=`<img src="${p}"><button class="photo-thumb-del" onclick="delPhoto('${dk}',${i})">×</button>`;
+    grid.appendChild(div);
+  });
+  const btn = document.createElement("button");
+  btn.className="add-photo-btn";
+  btn.innerHTML=`<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="#c4b0a8" stroke-width="1.5" stroke-linecap="round"/></svg><span>追加</span>`;
+  btn.onclick=()=>document.getElementById("photoInput").click();
+  grid.appendChild(btn);
+}
+
+// ── Render Today ──
+function renderToday() {
+  const dk = toKey(currentDate);
+  const rec = getRecord(dk);
+  const now = new Date();
+  const isToday = dk === toKey(now);
+  document.getElementById("currentDateTitle").textContent =
+    `${currentDate.getMonth()+1}/${currentDate.getDate()}（${DAY_JP[currentDate.getDay()]}）${isToday?" 今日":""}`;
+  renderChecks(rec);
+  renderMeals(rec,dk);
+  document.getElementById("noteInput").value = rec.note||"";
+  renderPhotos(rec,dk);
+}
+
+// ── Calendar ──
+function prevMonth() { calBase.setMonth(calBase.getMonth()-1); renderCalendar(); }
+function nextMonth() { calBase.setMonth(calBase.getMonth()+1); renderCalendar(); }
+function renderCalendar() {
+  const y=calBase.getFullYear(), m=calBase.getMonth();
+  document.getElementById("calTitle").textContent=`${y}年${m+1}月`;
+  const grid=document.getElementById("calGrid"); grid.innerHTML="";
+  ["月","火","水","木","金","土","日"].forEach(l=>{
+    const d=document.createElement("div"); d.className="cal-day-label"; d.textContent=l; grid.appendChild(d);
+  });
+  let dow=new Date(y,m,1).getDay(); dow=dow===0?6:dow-1;
+  for(let i=0;i<dow;i++){const e=document.createElement("div");grid.appendChild(e);}
+  const days=new Date(y,m+1,0).getDate();
+  const todayKey=toKey(new Date()), selKey=toKey(currentDate);
+  for(let d=1;d<=days;d++){
+    const date=new Date(y,m,d), key=toKey(date);
+    const rec=records[key];
+    const has=rec&&(Object.values(rec.checks||{}).some(v=>v)||(rec.meals||[]).length>0||rec.note||(rec.photos||[]).length>0);
+    const btn=document.createElement("button");
+    btn.className="cal-day"+(key===todayKey?" today":"")+(key===selKey?" selected":"")+(has?" has-record":"");
+    btn.innerHTML=`${d}${has?'<div class="cal-dot"></div>':""}`;
+    btn.onclick=()=>{currentDate=new Date(y,m,d);switchTab("today");renderToday();};
+    grid.appendChild(btn);
+  }
+}
+
+// ── Vaccine ──
+let editingVaccineIdx = -1;
+
+function showVaccineForm() {
+  editingVaccineIdx = -1;
+  document.getElementById("vaccineFormWrap").style.display="";
+  document.getElementById("addVaccineBtn").style.display="none";
+  document.querySelector(".vaccine-form-title").textContent="＋ ワクチン記録を追加";
+  vTempPhotos=[];
+  renderVaccineFormPhotos();
+  document.getElementById("vName").value="";
+  document.getElementById("vDate").value="";
+  document.getElementById("vNext").value="";
+  document.getElementById("vHospital").value="";
+  document.getElementById("vNote").value="";
+}
+
+function editVaccine(idx) {
+  const v = vaccines[idx];
+  editingVaccineIdx = idx;
+  document.getElementById("vaccineFormWrap").style.display="";
+  document.getElementById("addVaccineBtn").style.display="none";
+  document.querySelector(".vaccine-form-title").textContent="✎ ワクチン記録を編集";
+  vTempPhotos = v.photos ? [...v.photos] : [];
+  renderVaccineFormPhotos();
+  document.getElementById("vName").value = v.name||"";
+  document.getElementById("vDate").value = v.date||"";
+  document.getElementById("vNext").value = v.next||"";
+  document.getElementById("vHospital").value = v.hospital||"";
+  document.getElementById("vNote").value = v.note||"";
+  document.getElementById("vaccineFormWrap").scrollIntoView({behavior:"smooth"});
+}
+function cancelVaccineForm() {
+  document.getElementById("vaccineFormWrap").style.display="none";
+  document.getElementById("addVaccineBtn").style.display="";
+  vTempPhotos=[];
+}
+function handleVaccinePhoto(e) {
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{vTempPhotos.push(ev.target.result);renderVaccineFormPhotos();};
+  reader.readAsDataURL(file); e.target.value="";
+}
+function renderVaccineFormPhotos() {
+  const grid=document.getElementById("vPhotoGrid"); grid.innerHTML="";
+  vTempPhotos.forEach((p,i)=>{
+    const div=document.createElement("div");
+    div.style.cssText="width:56px;height:56px;border-radius:10px;overflow:hidden;position:relative;flex-shrink:0;";
+    div.innerHTML=`<img src="${p}" style="width:100%;height:100%;object-fit:cover;"><button onclick="delVFormPhoto(${i})" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.4);color:white;border:none;border-radius:50%;width:16px;height:16px;font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;">×</button>`;
+    grid.appendChild(div);
+  });
+  const btn=document.createElement("button");
+  btn.className="add-form-photo-btn";
+  btn.innerHTML=`<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="#c4b0a8" stroke-width="1.4" stroke-linecap="round"/></svg><span>追加</span>`;
+  btn.onclick=()=>document.getElementById("vPhotoInput").click();
+  grid.appendChild(btn);
+}
+function delVFormPhoto(idx) { vTempPhotos.splice(idx,1); renderVaccineFormPhotos(); }
+function submitVaccine() {
+  const name=document.getElementById("vName").value.trim();
+  if(!name){alert("ワクチン名を入力してください");return;}
+  const entry = {
+    name, date:document.getElementById("vDate").value,
+    next:document.getElementById("vNext").value,
+    hospital:document.getElementById("vHospital").value,
+    note:document.getElementById("vNote").value,
+    photos:[...vTempPhotos]
+  };
+  if(editingVaccineIdx >= 0) {
+    vaccines[editingVaccineIdx] = entry;
+  } else {
+    vaccines.push(entry);
+  }
+  saveVaccines(); cancelVaccineForm(); renderVaccines();
+}
+function delVaccine(idx) {
+  if(!confirm("削除しますか？"))return;
+  vaccines.splice(idx,1); saveVaccines(); renderVaccines();
+}
+function renderVaccines() {
+  const list=document.getElementById("vaccineList"); list.innerHTML="";
+  if(vaccines.length===0){
+    const empty=document.createElement("div");
+    empty.style.cssText="text-align:center;padding:32px 0;color:#d4c4bc;font-size:13px;";
+    empty.innerHTML=`<svg width="48" height="48" viewBox="0 0 48 48" fill="none" style="margin:0 auto 12px;display:block;opacity:.4"><path d="M14 34L34 14M22 10l12 12M10 22l12 12" stroke="#d4856a" stroke-width="2" stroke-linecap="round"/><circle cx="24" cy="24" r="8" stroke="#d4856a" stroke-width="2"/></svg>ワクチン記録がありません`;
+    list.appendChild(empty);
+    return;
+  }
+  vaccines.forEach((v,i)=>{
+    const card=document.createElement("div");
+    card.className="vaccine-card";
+    const photosHtml=v.photos&&v.photos.length>0?`<div class="vaccine-photos">${v.photos.map((p,pi)=>`<div class="vaccine-photo-thumb"><img src="${p}"></div>`).join("")}</div>`:"";
+    card.innerHTML=`
+      <div class="vaccine-header">
+        <div>
+          <div class="vaccine-name">${v.name}</div>
+          ${v.date?`<div class="vaccine-date">接種日：${v.date}</div>`:""}
+          ${v.next?`<div class="vaccine-next">次回予定：${v.next}</div>`:""}
+          ${v.hospital?`<div class="vaccine-hospital">🏥 ${v.hospital}</div>`:""}
+          ${v.note?`<div class="vaccine-note">${v.note}</div>`:""}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
+          <button class="vaccine-del-btn" onclick="editVaccine(${i})" style="color:#d4856a;font-size:14px;">✎</button>
+          <button class="vaccine-del-btn" onclick="delVaccine(${i})">×</button>
+        </div>
+      </div>
+      ${photosHtml}`;
+    list.appendChild(card);
+  });
+}
+
+// ── Init ──
+initPetInfo();
+renderToday();
+</script>
+
+<!-- Firebase同期 -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
+  import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAeAH_VkJieqZyK1pg62n25aSa8IIgS7xo",
+    authDomain: "work-bcaf3.firebaseapp.com",
+    databaseURL: "https://work-bcaf3-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "work-bcaf3",
+    storageBucket: "work-bcaf3.firebasestorage.app",
+    messagingSenderId: "767679616408",
+    appId: "1:767679616408:web:f9ca20017dfe5cc56987ed"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const KEYS = ["uchinokoLog_v1","uchinokoLog_pet_v1","uchinokoLog_vac_v1"];
+  let isSyncing = false;
+
+  function syncToFirebase() {
+    if(isSyncing) return;
+    const data={};
+    KEYS.forEach(k=>{const v=localStorage.getItem(k);if(v)data[k]=v;});
+    if(Object.keys(data).length>0) set(ref(db,"uchinokoData"),data);
+  }
+
+  get(ref(db,"uchinokoData")).then(snapshot=>{
+    const data=snapshot.val();
+    if(data){
+      let updated=false;
+      KEYS.forEach(k=>{if(data[k]&&data[k]!==localStorage.getItem(k)){isSyncing=true;localStorage.setItem(k,data[k]);updated=true;}});
+      isSyncing=false;
+      if(updated){location.reload();return;}
+    }
+    startSync();
+  }).catch(()=>startSync());
+
+  function startSync() {
+    onValue(ref(db,"uchinokoData"),snapshot=>{
+      if(isSyncing)return;
+      const data=snapshot.val(); if(!data)return;
+      let changed=false;
+      KEYS.forEach(k=>{if(data[k]&&data[k]!==localStorage.getItem(k)){isSyncing=true;localStorage.setItem(k,data[k]);changed=true;}});
+      isSyncing=false;
+      if(changed)location.reload();
+    });
+    setInterval(syncToFirebase,3000);
+    const orig=localStorage.setItem.bind(localStorage);
+    localStorage.setItem=function(key,value){orig(key,value);if(!isSyncing)syncToFirebase();};
+  }
+</script>
+</body>
+</html>
