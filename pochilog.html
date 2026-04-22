@@ -448,7 +448,7 @@ const DAILY_WORDS = [
 const DAY_JP = ["日","月","火","水","木","金","土"];
 
 // storage
-const SK = "chiko_v5", PK = "chiko_photo_v5", POSK = "chiko_pos_v5", NK = "chiko_name_v5", MK = "chiko_memo_v5";
+const SK = "chiko_v5", PK = "chiko_photo_v5", POSK = "chiko_pos_v5", NK = "chiko_name_v5", MK = "chiko_memo_v5", AK = "chiko_active_v5";
 let logs    = JSON.parse(localStorage.getItem(SK)||"{}");
 let memos   = JSON.parse(localStorage.getItem(MK)||"{}");
 let photo   = localStorage.getItem(PK)||null;
@@ -456,8 +456,8 @@ let pos     = JSON.parse(localStorage.getItem(POSK)||'{"x":50,"y":10}');
 let name    = localStorage.getItem(NK)||"";
 
 // state
-let active    = null; // {locationId, startTime}
-let elapsed   = 0;
+let active    = JSON.parse(localStorage.getItem(AK)||"null"); // 復元
+let elapsed   = active ? Date.now() - active.startTime : 0;
 let tickTimer = null;
 let curLoc    = "clinic";
 let curTab    = "timer";
@@ -581,9 +581,11 @@ function toggle() {
     logs[tk].push(entry);
     saveLogs();
     active = null;
+    localStorage.removeItem(AK);
     clearInterval(tickTimer); elapsed=0;
   } else {
     active = {locationId:curLoc, startTime:Date.now()};
+    localStorage.setItem(AK, JSON.stringify(active));
     tickTimer = setInterval(()=>{ elapsed=Date.now()-active.startTime; render(); },1000);
   }
   render();
@@ -980,9 +982,7 @@ window.selectLoc = selectLoc;
 window.renderName = renderName;
 window.render = render;
 window.renderWeekly = renderWeekly;
-window.logs = logs;
-window.memos = memos;
-window.name = name;
+// ※ アプリ起動はFirebase読み込み後に行うのでここでは呼ばない
 </script>
 
 <!-- Firebase同期 -->
@@ -1002,79 +1002,84 @@ window.name = name;
 
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
-  const KEYS = ["chiko_v5", "chiko_memo_v5", "chiko_name_v5", "chiko_pos_v5"];
-  let isRemoteUpdate = false;
-  let appInitialized = false;
+  const KEYS = ["chiko_v5", "chiko_memo_v5", "chiko_name_v5", "chiko_pos_v5", "chiko_active_v5"];
+  let isSyncing = false;
 
   // Firebaseにデータを保存
   function syncToFirebase() {
-    if (isRemoteUpdate) return;
+    if (isSyncing) return;
     const data = {};
     KEYS.forEach(k => {
       const v = localStorage.getItem(k);
       if (v) data[k] = v;
     });
-    if (Object.keys(data).length > 0) {
-      set(ref(db, "chikoData"), data);
-    }
+    if (Object.keys(data).length > 0) set(ref(db, "chikoData"), data);
   }
 
-  // アプリ初期化
-  function initApp() {
-    if (appInitialized) return;
-    appInitialized = true;
-    // グローバル関数を呼ぶ
-    window.selectLoc("clinic");
-    window.renderName();
-    window.render();
-    // 以降はリアルタイム同期
+  // 起動時：Firebaseからデータを取得 → localStorageに保存 → ページリロード
+  get(ref(db, "chikoData")).then((snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      let updated = false;
+      KEYS.forEach(k => {
+        if (data[k] && data[k] !== localStorage.getItem(k)) {
+          isSyncing = true;
+          localStorage.setItem(k, data[k]);
+          updated = true;
+        }
+      });
+      isSyncing = false;
+      if (updated) {
+        // データを反映してアプリを再起動
+        location.reload();
+        return;
+      }
+    }
+    startApp();
+  }).catch(() => startApp());
+
+  function startApp() {
+    // 出勤中タイマーの復元
+    const savedActive = localStorage.getItem("chiko_active_v5");
+    if (savedActive) {
+      try {
+        const a = JSON.parse(savedActive);
+        active = a;
+        elapsed = Date.now() - a.startTime;
+        tickTimer = setInterval(() => { elapsed = Date.now() - active.startTime; render(); }, 1000);
+      } catch(e) {}
+    }
+    selectLoc("clinic");
+    renderName();
+    render();
+
+    // リアルタイム同期（他端末からの変更を受信）
     onValue(ref(db, "chikoData"), (snapshot) => {
-      if (isRemoteUpdate) return;
+      if (isSyncing) return;
       const data = snapshot.val();
       if (!data) return;
       let changed = false;
       KEYS.forEach(k => {
-        if (data[k] && localStorage.getItem(k) !== data[k]) {
-          isRemoteUpdate = true;
+        if (data[k] && data[k] !== localStorage.getItem(k)) {
+          isSyncing = true;
           localStorage.setItem(k, data[k]);
           changed = true;
         }
       });
-      if (changed) {
-        // データ再読み込み
-        window.logs  = JSON.parse(localStorage.getItem("chiko_v5") || "{}");
-        window.memos = JSON.parse(localStorage.getItem("chiko_memo_v5") || "{}");
-        window.name  = localStorage.getItem("chiko_name_v5") || "";
-        window.render();
-        window.renderName();
-        if (document.getElementById("weeklyList")) window.renderWeekly();
-        setTimeout(() => { isRemoteUpdate = false; }, 500);
-      }
+      isSyncing = false;
+      if (changed) location.reload();
     });
+
     // 3秒ごとにFirebaseへ保存
     setInterval(syncToFirebase, 3000);
+
+    // localStorage変更時に即時保存
+    const origSetItem = localStorage.setItem.bind(localStorage);
+    localStorage.setItem = function(key, value) {
+      origSetItem(key, value);
+      if (!isSyncing) syncToFirebase();
+    };
   }
-
-  // 起動時：まずFirebaseからデータを取得してからアプリ起動
-  get(ref(db, "chikoData")).then((snapshot) => {
-    const data = snapshot.val();
-    if (data) {
-      KEYS.forEach(k => {
-        if (data[k]) localStorage.setItem(k, data[k]);
-      });
-    }
-    initApp();
-  }).catch(() => {
-    // Firebase失敗時もアプリは起動する
-    initApp();
-  });
-
-  // localStorage変更時にも即時保存
-  const origSetItem = localStorage.setItem.bind(localStorage);
-  localStorage.setItem = function(key, value) {
-    origSetItem(key, value);
-    if (!isRemoteUpdate) syncToFirebase();
-  };
 </script>
 </body>
 </html>
