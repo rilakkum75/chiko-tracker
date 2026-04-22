@@ -892,19 +892,21 @@ function renderWeekly() {
     card.innerHTML = `
       <div class="weekly-day-header">
         <span class="weekly-day-label" style="color:${dayColor}">${d.getMonth()+1}/${d.getDate()}（${dayName}）</span>
-        ${isWorked
-          ? `<span class="weekly-day-total">${fmtHM(total)}</span>`
-          : `<span class="weekly-day-off">お休み</span>`}
+        <div style="display:flex;align-items:center;gap:6px">
+          ${isWorked ? `<span class="weekly-day-total">${fmtHM(total)}</span>` : `<span class="weekly-day-off">お休み</span>`}
+          <button onclick="toggleMemo('${key}')" style="background:none;border:none;cursor:pointer;font-size:18px;color:#c4b0a8;padding:2px 6px;">✎</button>
+          <button onclick="toggleManualForm('${key}')" style="background:none;border:1.5px solid #e8ddd8;border-radius:99px;cursor:pointer;font-size:11px;color:#c4b0a8;padding:2px 8px;">＋</button>
+        </div>
       </div>
       ${entriesHtml}
-      ${isWorked ? `
+      ${memo ? `<div style="font-size:14px;color:#a89488;margin-top:6px;padding:4px 0;">${memo}</div>` : ""}
+      <div id="memoArea_${key}" style="display:none">
         <textarea class="weekly-memo-area" id="memo_${key}" placeholder="今日やったことを書こう…">${memo}</textarea>
-        <div style="display:flex;align-items:center;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
           <button class="weekly-memo-save" onclick="saveMemo('${key}')">保存</button>
           <span class="weekly-memo-saved" id="saved_${key}" style="display:none">保存しました ✓</span>
         </div>
-      ` : ""}
-      <button class="manual-add-btn" onclick="toggleManualForm('${key}')">＋ 手動で記録を追加</button>
+      </div>
       <div class="manual-form" id="manualForm_${key}" style="display:none">
         <div class="manual-form-row">
           <label>開始</label>
@@ -939,6 +941,12 @@ function saveMemo(key) {
     saved.style.display = "";
     setTimeout(() => { saved.style.display = "none"; }, 1500);
   }
+}
+
+function toggleMemo(key) {
+  const area = document.getElementById("memoArea_" + key);
+  if (!area) return;
+  area.style.display = area.style.display === "none" ? "" : "none";
 }
 
 function toggleManualForm(key) {
