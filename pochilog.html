@@ -1085,6 +1085,8 @@ window.renderWeekly = renderWeekly;
       // Firebaseが新しければ適用
       isSyncing = true;
       KEYS.forEach(k => { if (data[k]) localStorage.setItem(k, data[k]); else localStorage.removeItem(k); });
+      // activeがない＝退勤済みなら必ずactiveを消す
+      if (!data["chiko_active_v5"]) localStorage.removeItem("chiko_active_v5");
       localStorage.setItem(TS_KEY, String(data._ts));
       myTs = data._ts;
       isSyncing = false;
@@ -1128,6 +1130,11 @@ window.renderWeekly = renderWeekly;
           changed = true;
         }
       });
+      // activeがない＝退勤済みなら必ずactiveを消す
+      if (!data["chiko_active_v5"]) {
+        localStorage.removeItem("chiko_active_v5");
+        changed = true;
+      }
       localStorage.setItem(TS_KEY, String(data._ts));
       myTs = data._ts;
       isSyncing = false;
