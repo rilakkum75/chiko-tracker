@@ -871,13 +871,33 @@ function renderWeekly() {
     let entriesHtml = "";
     if(isWorked) {
       entriesHtml = `<div class="weekly-work-entries">`;
-      dayEntries.forEach(e => {
+      dayEntries.forEach((e, ei) => {
         const loc = LOCS[e.locationId];
         const st = new Date(e.startTime).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"});
         const et = new Date(e.endTime).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"});
-        entriesHtml += `<div class="weekly-entry-row">
+        entriesHtml += `<div class="weekly-entry-row" id="entryRow_${key}_${ei}">
           <div class="weekly-dot" style="background:${loc.color}"></div>
-          <span>${loc.emoji} ${st}–${et}（${fmtHM(e.duration)}）</span>
+          <span style="flex:1">${loc.emoji} ${st}–${et}（${fmtHM(e.duration)}）</span>
+          <button onclick="startEditEntry('${key}',${ei})" style="background:none;border:none;cursor:pointer;font-size:14px;color:#c4b0a8;padding:2px 4px;">✎</button>
+          <button onclick="delEntry('${key}',${ei})" style="background:none;border:none;cursor:pointer;font-size:14px;color:#d4c0b8;padding:2px 4px;">×</button>
+        </div>
+        <div id="editForm_${key}_${ei}" style="display:none;background:#faf5f2;border-radius:10px;padding:10px;margin:4px 0;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <label style="font-size:11px;color:#c4a898;width:30px;">開始</label>
+            <input type="time" id="editStart_${key}_${ei}" value="${new Date(e.startTime).toTimeString().slice(0,5)}" style="border:none;background:white;border-radius:6px;padding:4px 8px;font-size:12px;color:#7a6560;font-family:inherit;outline:none;">
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <label style="font-size:11px;color:#c4a898;width:30px;">終了</label>
+            <input type="time" id="editEnd_${key}_${ei}" value="${new Date(e.endTime).toTimeString().slice(0,5)}" style="border:none;background:white;border-radius:6px;padding:4px 8px;font-size:12px;color:#7a6560;font-family:inherit;outline:none;">
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+            <label style="font-size:11px;color:#c4a898;width:30px;">場所</label>
+            <select id="editLoc_${key}_${ei}" style="border:none;background:white;border-radius:6px;padding:4px 8px;font-size:12px;color:#7a6560;font-family:inherit;outline:none;">${Object.entries(LOCS).map(([id,l])=>`<option value="${id}"${id===e.locationId?" selected":""}>${l.emoji} ${l.label}</option>`).join("")}</select>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button onclick="saveEditEntry('${key}',${ei})" style="flex:1;padding:6px;border:none;border-radius:8px;background:#d4856a;color:white;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;">保存</button>
+            <button onclick="cancelEditEntry('${key}',${ei})" style="padding:6px 12px;border:1.5px solid #e8ddd8;border-radius:8px;background:white;color:#c4b0a8;font-size:12px;font-family:inherit;cursor:pointer;">キャンセル</button>
+          </div>
         </div>`;
       });
       entriesHtml += `</div>`;
@@ -980,6 +1000,38 @@ function submitManual(key) {
   render();
 }
 
+function startEditEntry(key, idx) {
+  document.getElementById(`editForm_${key}_${idx}`).style.display = "";
+}
+function cancelEditEntry(key, idx) {
+  document.getElementById(`editForm_${key}_${idx}`).style.display = "none";
+}
+function saveEditEntry(key, idx) {
+  const startVal = document.getElementById(`editStart_${key}_${idx}`).value;
+  const endVal   = document.getElementById(`editEnd_${key}_${idx}`).value;
+  const locId    = document.getElementById(`editLoc_${key}_${idx}`).value;
+  if(!startVal || !endVal) return;
+  const [sy,sm,sd] = key.split("-").map(Number);
+  const [sh,smin]  = startVal.split(":").map(Number);
+  const [eh,emin]  = endVal.split(":").map(Number);
+  const startTime  = new Date(sy,sm-1,sd,sh,smin,0).getTime();
+  let   endTime    = new Date(sy,sm-1,sd,eh,emin,0).getTime();
+  if(endTime <= startTime) { alert("終了は開始より後にしてください"); return; }
+  logs[key][idx] = { locationId: locId, startTime, endTime, duration: endTime - startTime };
+  logs[key].sort((a,b) => a.startTime - b.startTime);
+  saveLogs();
+  renderWeekly();
+  render();
+}
+function delEntry(key, idx) {
+  if(!confirm("この記録を削除しますか？")) return;
+  logs[key].splice(idx, 1);
+  if(logs[key].length === 0) delete logs[key];
+  saveLogs();
+  renderWeekly();
+  render();
+}
+
 function prevWeek() { weekBase.setDate(weekBase.getDate() - 7); renderWeekly(); }
 function nextWeek() { weekBase.setDate(weekBase.getDate() + 7); renderWeekly(); }
 
@@ -1009,34 +1061,35 @@ window.renderWeekly = renderWeekly;
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
   const KEYS = ["chiko_v5", "chiko_memo_v5", "chiko_name_v5", "chiko_pos_v5", "chiko_active_v5"];
+  const TS_KEY = "chiko_ts_v5"; // タイムスタンプ
   let isSyncing = false;
+  let lastSyncTs = 0;
 
-  // Firebaseにデータを保存
+  // タイムスタンプ付きでFirebaseに保存
   function syncToFirebase() {
     if (isSyncing) return;
-    const data = {};
+    const now = Date.now();
+    const data = { _ts: now };
     KEYS.forEach(k => {
       const v = localStorage.getItem(k);
       if (v) data[k] = v;
     });
-    if (Object.keys(data).length > 0) set(ref(db, "chikoData"), data);
+    lastSyncTs = now;
+    set(ref(db, "chikoData"), data);
   }
 
-  // 起動時：Firebaseからデータを取得 → localStorageに保存 → ページリロード
+  // 起動時：Firebaseからデータを取得
   get(ref(db, "chikoData")).then((snapshot) => {
     const data = snapshot.val();
     if (data) {
-      let updated = false;
-      KEYS.forEach(k => {
-        if (data[k] && data[k] !== localStorage.getItem(k)) {
-          isSyncing = true;
-          localStorage.setItem(k, data[k]);
-          updated = true;
-        }
-      });
-      isSyncing = false;
-      if (updated) {
-        // データを反映してアプリを再起動
+      const localTs = parseInt(localStorage.getItem(TS_KEY) || "0");
+      const remoteTs = data._ts || 0;
+      // Firebaseの方が新しい場合のみ適用
+      if (remoteTs > localTs) {
+        isSyncing = true;
+        KEYS.forEach(k => { if (data[k]) localStorage.setItem(k, data[k]); });
+        localStorage.setItem(TS_KEY, String(remoteTs));
+        isSyncing = false;
         location.reload();
         return;
       }
@@ -1064,14 +1117,19 @@ window.renderWeekly = renderWeekly;
       if (isSyncing) return;
       const data = snapshot.val();
       if (!data) return;
+      const localTs = parseInt(localStorage.getItem(TS_KEY) || "0");
+      const remoteTs = data._ts || 0;
+      // Firebaseの方が新しい場合のみ適用（古いデータで上書きしない）
+      if (remoteTs <= localTs) return;
+      isSyncing = true;
       let changed = false;
       KEYS.forEach(k => {
         if (data[k] && data[k] !== localStorage.getItem(k)) {
-          isSyncing = true;
           localStorage.setItem(k, data[k]);
           changed = true;
         }
       });
+      localStorage.setItem(TS_KEY, String(remoteTs));
       isSyncing = false;
       if (changed) location.reload();
     });
@@ -1083,7 +1141,10 @@ window.renderWeekly = renderWeekly;
     const origSetItem = localStorage.setItem.bind(localStorage);
     localStorage.setItem = function(key, value) {
       origSetItem(key, value);
-      if (!isSyncing) syncToFirebase();
+      if (!isSyncing) {
+        localStorage.setItem(TS_KEY, String(Date.now()));
+        syncToFirebase();
+      }
     };
   }
 </script>
