@@ -1061,44 +1061,42 @@ window.renderWeekly = renderWeekly;
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
   const KEYS = ["chiko_v5", "chiko_memo_v5", "chiko_name_v5", "chiko_pos_v5", "chiko_active_v5"];
-  const TS_KEY = "chiko_ts_v5"; // タイムスタンプ
+  const TS_KEY = "chiko_ts_v5";
   let isSyncing = false;
-  let lastSyncTs = 0;
+  let myTs = parseInt(localStorage.getItem(TS_KEY) || "0");
 
-  // タイムスタンプ付きでFirebaseに保存
+  function getMyTs() { return parseInt(localStorage.getItem(TS_KEY) || "0"); }
+
+  // Firebaseに保存（自分のタイムスタンプ付き）
   function syncToFirebase() {
     if (isSyncing) return;
-    const now = Date.now();
-    const data = { _ts: now };
-    KEYS.forEach(k => {
-      const v = localStorage.getItem(k);
-      if (v) data[k] = v;
-    });
-    lastSyncTs = now;
+    const ts = Date.now();
+    myTs = ts;
+    localStorage.setItem(TS_KEY, String(ts));
+    const data = { _ts: ts };
+    KEYS.forEach(k => { const v = localStorage.getItem(k); if (v) data[k] = v; });
     set(ref(db, "chikoData"), data);
   }
 
-  // 起動時：Firebaseからデータを取得
+  // 起動時にFirebaseから取得
   get(ref(db, "chikoData")).then((snapshot) => {
     const data = snapshot.val();
-    if (data) {
-      const localTs = parseInt(localStorage.getItem(TS_KEY) || "0");
-      const remoteTs = data._ts || 0;
-      // Firebaseの方が新しい場合のみ適用
-      if (remoteTs > localTs) {
-        isSyncing = true;
-        KEYS.forEach(k => { if (data[k]) localStorage.setItem(k, data[k]); });
-        localStorage.setItem(TS_KEY, String(remoteTs));
-        isSyncing = false;
-        location.reload();
-        return;
-      }
+    if (data && data._ts && data._ts > getMyTs()) {
+      // Firebaseが新しければ適用
+      isSyncing = true;
+      KEYS.forEach(k => { if (data[k]) localStorage.setItem(k, data[k]); else localStorage.removeItem(k); });
+      localStorage.setItem(TS_KEY, String(data._ts));
+      myTs = data._ts;
+      isSyncing = false;
+      location.reload();
+      return;
     }
+    // 自分の方が新しければ自分のデータをFirebaseに送る
+    if (getMyTs() > 0) syncToFirebase();
     startApp();
   }).catch(() => startApp());
 
   function startApp() {
-    // 出勤中タイマーの復元
     const savedActive = localStorage.getItem("chiko_active_v5");
     if (savedActive) {
       try {
@@ -1112,39 +1110,40 @@ window.renderWeekly = renderWeekly;
     renderName();
     render();
 
-    // リアルタイム同期（他端末からの変更を受信）
+    // 他端末からの変更を受信
     onValue(ref(db, "chikoData"), (snapshot) => {
       if (isSyncing) return;
       const data = snapshot.val();
-      if (!data) return;
-      const localTs = parseInt(localStorage.getItem(TS_KEY) || "0");
-      const remoteTs = data._ts || 0;
-      // Firebaseの方が新しい場合のみ適用（古いデータで上書きしない）
-      if (remoteTs <= localTs) return;
+      if (!data || !data._ts) return;
+      // 自分より新しいデータだけ受け入れる
+      if (data._ts <= getMyTs()) return;
       isSyncing = true;
       let changed = false;
       KEYS.forEach(k => {
-        if (data[k] && data[k] !== localStorage.getItem(k)) {
-          localStorage.setItem(k, data[k]);
+        const newVal = data[k] || null;
+        const oldVal = localStorage.getItem(k);
+        if (newVal !== oldVal) {
+          if (newVal) localStorage.setItem(k, newVal);
+          else localStorage.removeItem(k);
           changed = true;
         }
       });
-      localStorage.setItem(TS_KEY, String(remoteTs));
+      localStorage.setItem(TS_KEY, String(data._ts));
+      myTs = data._ts;
       isSyncing = false;
       if (changed) location.reload();
     });
 
-    // 3秒ごとにFirebaseへ保存
-    setInterval(syncToFirebase, 3000);
-
-    // localStorage変更時に即時保存
+    // データ変更時に即時保存
     const origSetItem = localStorage.setItem.bind(localStorage);
+    const origRemoveItem = localStorage.removeItem.bind(localStorage);
     localStorage.setItem = function(key, value) {
       origSetItem(key, value);
-      if (!isSyncing) {
-        localStorage.setItem(TS_KEY, String(Date.now()));
-        syncToFirebase();
-      }
+      if (!isSyncing && KEYS.includes(key)) syncToFirebase();
+    };
+    localStorage.removeItem = function(key) {
+      origRemoveItem(key);
+      if (!isSyncing && KEYS.includes(key)) syncToFirebase();
     };
   }
 </script>
