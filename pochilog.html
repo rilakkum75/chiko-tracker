@@ -1073,21 +1073,29 @@ window.renderWeekly = renderWeekly;
   }
 
   // 起動時：Firebaseからデータを読み込むだけ（保存しない）
-  get(ref(db, "chikoData")).then((snapshot) => {
-    const data = snapshot.val();
-    if (data) {
-      isSyncing = true;
-      KEYS.forEach(k => {
-        if (data[k]) localStorage.setItem(k, data[k]);
-        else localStorage.removeItem(k);
-      });
-      if (!data["chiko_active_v5"]) localStorage.removeItem("chiko_active_v5");
-      isSyncing = false;
-      location.reload();
-      return;
-    }
+  // すでにリロード済みの場合はスキップ
+  const alreadyLoaded = sessionStorage.getItem("fb_loaded");
+  if (!alreadyLoaded) {
+    get(ref(db, "chikoData")).then((snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        isSyncing = true;
+        KEYS.forEach(k => {
+          if (data[k]) localStorage.setItem(k, data[k]);
+          else localStorage.removeItem(k);
+        });
+        if (!data["chiko_active_v5"]) localStorage.removeItem("chiko_active_v5");
+        isSyncing = false;
+        sessionStorage.setItem("fb_loaded", "1");
+        location.reload();
+        return;
+      }
+      sessionStorage.setItem("fb_loaded", "1");
+      startApp();
+    }).catch(() => { sessionStorage.setItem("fb_loaded", "1"); startApp(); });
+  } else {
     startApp();
-  }).catch(() => startApp());
+  }
 
   function startApp() {
     const savedActive = localStorage.getItem("chiko_active_v5");
