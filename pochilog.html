@@ -1074,16 +1074,24 @@ window.renderWeekly = renderWeekly;
   // Firebaseのデータをアプリに反映（リロードなし）
   function applyData(data) {
     isSyncing = true;
+    // localStorageの元の関数を直接使う（カスタム関数を経由しない）
+    const _set = Object.getOwnPropertyDescriptor(Storage.prototype, 'setItem') 
+      ? Storage.prototype.setItem.bind(localStorage)
+      : localStorage._origSetItem || localStorage.setItem.bind(localStorage);
+    const _remove = Object.getOwnPropertyDescriptor(Storage.prototype, 'removeItem')
+      ? Storage.prototype.removeItem.bind(localStorage)
+      : localStorage._origRemoveItem || localStorage.removeItem.bind(localStorage);
+
     KEYS.forEach(k => {
-      if (data[k]) localStorage.setItem(k, data[k]);
-      else localStorage.removeItem(k);
+      if (data[k]) _set(k, data[k]);
+      else _remove(k);
     });
     isSyncing = false;
 
-    // logsを更新
-    logs = JSON.parse(localStorage.getItem("chiko_v5") || "{}");
+    // 変数を更新
+    logs  = JSON.parse(localStorage.getItem("chiko_v5") || "{}");
     memos = JSON.parse(localStorage.getItem("chiko_memo_v5") || "{}");
-    name = localStorage.getItem("chiko_name_v5") || "";
+    name  = localStorage.getItem("chiko_name_v5") || "";
 
     // activeを更新
     const savedActive = localStorage.getItem("chiko_active_v5");
@@ -1098,7 +1106,6 @@ window.renderWeekly = renderWeekly;
         }
       } catch(e) {}
     } else {
-      // 退勤済み
       clearInterval(tickTimer);
       active = null;
       elapsed = 0;
@@ -1139,6 +1146,8 @@ window.renderWeekly = renderWeekly;
     // 操作時のみFirebaseに保存
     const origSetItem = localStorage.setItem.bind(localStorage);
     const origRemoveItem = localStorage.removeItem.bind(localStorage);
+    localStorage._origSetItem = origSetItem;
+    localStorage._origRemoveItem = origRemoveItem;
     localStorage.setItem = function(key, value) {
       origSetItem(key, value);
       if (!isSyncing && KEYS.includes(key)) saveToFirebase();
