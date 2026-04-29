@@ -1061,40 +1061,31 @@ window.renderWeekly = renderWeekly;
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
   const KEYS = ["chiko_v5", "chiko_memo_v5", "chiko_name_v5", "chiko_pos_v5", "chiko_active_v5"];
-  const TS_KEY = "chiko_ts_v5";
   let isSyncing = false;
-  let myTs = parseInt(localStorage.getItem(TS_KEY) || "0");
+  let userActed = false; // ユーザーが操作したかどうか
 
-  function getMyTs() { return parseInt(localStorage.getItem(TS_KEY) || "0"); }
-
-  // Firebaseに保存（自分のタイムスタンプ付き）
+  // Firebaseに保存（操作した時だけ呼ばれる）
   function syncToFirebase() {
     if (isSyncing) return;
-    const ts = Date.now();
-    myTs = ts;
-    localStorage.setItem(TS_KEY, String(ts));
-    const data = { _ts: ts };
+    const data = { _ts: Date.now() };
     KEYS.forEach(k => { const v = localStorage.getItem(k); if (v) data[k] = v; });
     set(ref(db, "chikoData"), data);
   }
 
-  // 起動時にFirebaseから取得
+  // 起動時：Firebaseからデータを読み込むだけ（保存しない）
   get(ref(db, "chikoData")).then((snapshot) => {
     const data = snapshot.val();
-    if (data && data._ts && data._ts > getMyTs()) {
-      // Firebaseが新しければ適用
+    if (data) {
       isSyncing = true;
-      KEYS.forEach(k => { if (data[k]) localStorage.setItem(k, data[k]); else localStorage.removeItem(k); });
-      // activeがない＝退勤済みなら必ずactiveを消す
+      KEYS.forEach(k => {
+        if (data[k]) localStorage.setItem(k, data[k]);
+        else localStorage.removeItem(k);
+      });
       if (!data["chiko_active_v5"]) localStorage.removeItem("chiko_active_v5");
-      localStorage.setItem(TS_KEY, String(data._ts));
-      myTs = data._ts;
       isSyncing = false;
       location.reload();
       return;
     }
-    // 自分の方が新しければ自分のデータをFirebaseに送る
-    if (getMyTs() > 0) syncToFirebase();
     startApp();
   }).catch(() => startApp());
 
@@ -1112,13 +1103,13 @@ window.renderWeekly = renderWeekly;
     renderName();
     render();
 
-    // 他端末からの変更を受信
+    // 他端末からの変更をリアルタイムで受信
     onValue(ref(db, "chikoData"), (snapshot) => {
       if (isSyncing) return;
       const data = snapshot.val();
-      if (!data || !data._ts) return;
-      // 自分より新しいデータだけ受け入れる
-      if (data._ts <= getMyTs()) return;
+      if (!data) return;
+      // 自分が操作中なら無視
+      if (userActed) return;
       isSyncing = true;
       let changed = false;
       KEYS.forEach(k => {
@@ -1130,27 +1121,35 @@ window.renderWeekly = renderWeekly;
           changed = true;
         }
       });
-      // activeがない＝退勤済みなら必ずactiveを消す
       if (!data["chiko_active_v5"]) {
-        localStorage.removeItem("chiko_active_v5");
-        changed = true;
+        if (localStorage.getItem("chiko_active_v5")) {
+          localStorage.removeItem("chiko_active_v5");
+          changed = true;
+        }
       }
-      localStorage.setItem(TS_KEY, String(data._ts));
-      myTs = data._ts;
       isSyncing = false;
       if (changed) location.reload();
     });
 
-    // データ変更時に即時保存
+    // localStorage変更時（操作時）のみFirebaseに保存
     const origSetItem = localStorage.setItem.bind(localStorage);
     const origRemoveItem = localStorage.removeItem.bind(localStorage);
     localStorage.setItem = function(key, value) {
       origSetItem(key, value);
-      if (!isSyncing && KEYS.includes(key)) syncToFirebase();
+      if (!isSyncing && KEYS.includes(key)) {
+        userActed = true;
+        syncToFirebase();
+        // 3秒後にuserActedをリセット（他端末の更新を再び受け取れるように）
+        setTimeout(() => { userActed = false; }, 3000);
+      }
     };
     localStorage.removeItem = function(key) {
       origRemoveItem(key);
-      if (!isSyncing && KEYS.includes(key)) syncToFirebase();
+      if (!isSyncing && KEYS.includes(key)) {
+        userActed = true;
+        syncToFirebase();
+        setTimeout(() => { userActed = false; }, 3000);
+      }
     };
   }
 </script>
