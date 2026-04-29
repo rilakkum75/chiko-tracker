@@ -1062,44 +1062,61 @@ window.renderWeekly = renderWeekly;
   const db = getDatabase(app);
   const KEYS = ["chiko_v5", "chiko_memo_v5", "chiko_name_v5", "chiko_pos_v5", "chiko_active_v5"];
   let isSyncing = false;
-  let userActed = false; // ユーザーが操作したかどうか
+  let userActed = false;
 
-  // Firebaseに保存（操作した時だけ呼ばれる）
-  function syncToFirebase() {
-    if (isSyncing) return;
+  // Firebaseにデータを保存（操作時のみ呼ばれる）
+  function saveToFirebase() {
     const data = { _ts: Date.now() };
     KEYS.forEach(k => { const v = localStorage.getItem(k); if (v) data[k] = v; });
     set(ref(db, "chikoData"), data);
   }
 
-  // 起動時：Firebaseからデータを読み込むだけ（保存しない）
-  // すでにリロード済みの場合はスキップ
-  const alreadyLoaded = sessionStorage.getItem("fb_loaded");
-  if (!alreadyLoaded) {
-    get(ref(db, "chikoData")).then((snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        isSyncing = true;
-        KEYS.forEach(k => {
-          if (data[k]) localStorage.setItem(k, data[k]);
-          else localStorage.removeItem(k);
-        });
-        if (!data["chiko_active_v5"]) localStorage.removeItem("chiko_active_v5");
-        isSyncing = false;
-        sessionStorage.setItem("fb_loaded", "1");
-        location.reload();
-        return;
-      }
-      sessionStorage.setItem("fb_loaded", "1");
-      startApp();
-    }).catch(() => { sessionStorage.setItem("fb_loaded", "1"); startApp(); });
-  } else {
-    startApp();
-  }
+  // Firebaseのデータをアプリに反映（リロードなし）
+  function applyData(data) {
+    isSyncing = true;
+    KEYS.forEach(k => {
+      if (data[k]) localStorage.setItem(k, data[k]);
+      else localStorage.removeItem(k);
+    });
+    isSyncing = false;
 
-  function startApp() {
+    // logsを更新
+    logs = JSON.parse(localStorage.getItem("chiko_v5") || "{}");
+    memos = JSON.parse(localStorage.getItem("chiko_memo_v5") || "{}");
+    name = localStorage.getItem("chiko_name_v5") || "";
+
+    // activeを更新
     const savedActive = localStorage.getItem("chiko_active_v5");
     if (savedActive) {
+      try {
+        const a = JSON.parse(savedActive);
+        if (!active || active.startTime !== a.startTime) {
+          clearInterval(tickTimer);
+          active = a;
+          elapsed = Date.now() - a.startTime;
+          tickTimer = setInterval(() => { elapsed = Date.now() - active.startTime; render(); }, 1000);
+        }
+      } catch(e) {}
+    } else {
+      // 退勤済み
+      clearInterval(tickTimer);
+      active = null;
+      elapsed = 0;
+    }
+
+    renderName();
+    render();
+    if (document.getElementById("weeklyList")) renderWeekly();
+  }
+
+  // 起動時：Firebaseからデータを読み込んでアプリ起動
+  get(ref(db, "chikoData")).then((snapshot) => {
+    const data = snapshot.val();
+    if (data) applyData(data);
+
+    // アプリ起動
+    const savedActive = localStorage.getItem("chiko_active_v5");
+    if (savedActive && !active) {
       try {
         const a = JSON.parse(savedActive);
         active = a;
@@ -1116,50 +1133,35 @@ window.renderWeekly = renderWeekly;
       if (isSyncing) return;
       const data = snapshot.val();
       if (!data) return;
-      // 自分が操作中なら無視
-      if (userActed) return;
-      isSyncing = true;
-      let changed = false;
-      KEYS.forEach(k => {
-        const newVal = data[k] || null;
-        const oldVal = localStorage.getItem(k);
-        if (newVal !== oldVal) {
-          if (newVal) localStorage.setItem(k, newVal);
-          else localStorage.removeItem(k);
-          changed = true;
-        }
-      });
-      if (!data["chiko_active_v5"]) {
-        if (localStorage.getItem("chiko_active_v5")) {
-          localStorage.removeItem("chiko_active_v5");
-          changed = true;
-        }
-      }
-      isSyncing = false;
-      if (changed) location.reload();
+      applyData(data);
     });
 
-    // localStorage変更時（操作時）のみFirebaseに保存
+    // 操作時のみFirebaseに保存
     const origSetItem = localStorage.setItem.bind(localStorage);
     const origRemoveItem = localStorage.removeItem.bind(localStorage);
     localStorage.setItem = function(key, value) {
       origSetItem(key, value);
-      if (!isSyncing && KEYS.includes(key)) {
-        userActed = true;
-        syncToFirebase();
-        // 3秒後にuserActedをリセット（他端末の更新を再び受け取れるように）
-        setTimeout(() => { userActed = false; }, 3000);
-      }
+      if (!isSyncing && KEYS.includes(key)) saveToFirebase();
     };
     localStorage.removeItem = function(key) {
       origRemoveItem(key);
-      if (!isSyncing && KEYS.includes(key)) {
-        userActed = true;
-        syncToFirebase();
-        setTimeout(() => { userActed = false; }, 3000);
-      }
+      if (!isSyncing && KEYS.includes(key)) saveToFirebase();
     };
-  }
+  }).catch(() => {
+    // Firebase失敗時もアプリ起動
+    const savedActive = localStorage.getItem("chiko_active_v5");
+    if (savedActive) {
+      try {
+        const a = JSON.parse(savedActive);
+        active = a;
+        elapsed = Date.now() - a.startTime;
+        tickTimer = setInterval(() => { elapsed = Date.now() - active.startTime; render(); }, 1000);
+      } catch(e) {}
+    }
+    selectLoc("clinic");
+    renderName();
+    render();
+  });
 </script>
 </body>
 </html>
