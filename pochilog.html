@@ -1065,6 +1065,23 @@ window.renderWeekly = renderWeekly;
   const db = getDatabase(app);
   const KEYS = ["chiko_v5", "chiko_memo_v5", "chiko_name_v5", "chiko_pos_v5", "chiko_active_v5"];
 
+  // ローカルとFirebaseのlogsをマージ（両方の日付を合体）
+  function mergeLogs(localLogs, remoteLogs) {
+    const merged = Object.assign({}, remoteLogs);
+    Object.keys(localLogs).forEach(date => {
+      if (!merged[date]) {
+        // ローカルにしかない日付はそのまま追加
+        merged[date] = localLogs[date];
+      } else {
+        // 両方にある場合はエントリ数が多い方を優先
+        if (localLogs[date].length >= merged[date].length) {
+          merged[date] = localLogs[date];
+        }
+      }
+    });
+    return merged;
+  }
+
   // Firebaseに保存
   function saveToFirebase() {
     const data = {};
@@ -1072,19 +1089,30 @@ window.renderWeekly = renderWeekly;
     return set(ref(db, "chikoData"), data);
   }
 
-  // Firebaseから読み込んでアプリに反映
-  function loadFromFirebase() {
+  // Firebaseから読み込んでアプリに反映（マージあり）
+  function loadFromFirebase(doMerge) {
     return get(ref(db, "chikoData")).then(snapshot => {
       const data = snapshot.val();
       if (!data) return;
+
+      if (doMerge) {
+        // logsだけマージして他はFirebaseを優先
+        const localLogs  = JSON.parse(localStorage.getItem("chiko_v5") || "{}");
+        const remoteLogs = JSON.parse(data["chiko_v5"] || "{}");
+        const merged = mergeLogs(localLogs, remoteLogs);
+        data["chiko_v5"] = JSON.stringify(merged);
+      }
+
       KEYS.forEach(k => {
         if (data[k]) localStorage.setItem(k, data[k]);
         else localStorage.removeItem(k);
       });
+
       // 変数を更新
       logs  = JSON.parse(localStorage.getItem("chiko_v5") || "{}");
       memos = JSON.parse(localStorage.getItem("chiko_memo_v5") || "{}");
       name  = localStorage.getItem("chiko_name_v5") || "";
+
       // activeを更新
       const a = localStorage.getItem("chiko_active_v5");
       if (a) {
@@ -1106,23 +1134,29 @@ window.renderWeekly = renderWeekly;
     });
   }
 
-  // 手動同期ボタン
+  // 手動同期ボタン（マージしてからFirebaseに保存）
   window.manualSync = function() {
     const btn = document.getElementById("syncBtn");
     btn.textContent = "同期中…";
     btn.style.color = "#d4856a";
-    // 自分のデータをFirebaseに保存してから読み込む
-    saveToFirebase().then(() => loadFromFirebase()).then(() => {
-      btn.textContent = "🔄 同期";
-      btn.style.color = "#c4a898";
+    loadFromFirebase(true).then(() => {
+      // マージ後のデータをFirebaseに保存
+      return saveToFirebase();
+    }).then(() => {
+      btn.textContent = "✓ 完了";
+      btn.style.color = "#7ab87a";
+      setTimeout(() => {
+        btn.textContent = "🔄 同期";
+        btn.style.color = "#c4a898";
+      }, 2000);
     }).catch(() => {
       btn.textContent = "🔄 同期";
       btn.style.color = "#c4a898";
     });
   };
 
-  // 起動時：Firebaseから読み込む
-  loadFromFirebase().then(() => {
+  // 起動時：マージなしでFirebaseから読み込む
+  loadFromFirebase(false).then(() => {
     const savedActive = localStorage.getItem("chiko_active_v5");
     if (savedActive && !active) {
       try {
