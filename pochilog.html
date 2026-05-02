@@ -1070,14 +1070,21 @@ window.renderWeekly = renderWeekly;
     const merged = Object.assign({}, remoteLogs);
     Object.keys(localLogs).forEach(date => {
       if (!merged[date]) {
-        // ローカルにしかない日付はそのまま追加
         merged[date] = localLogs[date];
       } else {
-        // 両方にある場合はエントリ数が多い方を優先
         if (localLogs[date].length >= merged[date].length) {
           merged[date] = localLogs[date];
         }
       }
+    });
+    return merged;
+  }
+
+  // ローカルとFirebaseのmemosをマージ
+  function mergeMemos(localMemos, remoteMemos) {
+    const merged = Object.assign({}, remoteMemos);
+    Object.keys(localMemos).forEach(date => {
+      if (localMemos[date]) merged[date] = localMemos[date];
     });
     return merged;
   }
@@ -1096,11 +1103,15 @@ window.renderWeekly = renderWeekly;
       if (!data) return;
 
       if (doMerge) {
-        // logsだけマージして他はFirebaseを優先
+        // logsをマージ
         const localLogs  = JSON.parse(localStorage.getItem("chiko_v5") || "{}");
         const remoteLogs = JSON.parse(data["chiko_v5"] || "{}");
-        const merged = mergeLogs(localLogs, remoteLogs);
-        data["chiko_v5"] = JSON.stringify(merged);
+        data["chiko_v5"] = JSON.stringify(mergeLogs(localLogs, remoteLogs));
+
+        // memosもマージ
+        const localMemos  = JSON.parse(localStorage.getItem("chiko_memo_v5") || "{}");
+        const remoteMemos = JSON.parse(data["chiko_memo_v5"] || "{}");
+        data["chiko_memo_v5"] = JSON.stringify(mergeMemos(localMemos, remoteMemos));
       }
 
       KEYS.forEach(k => {
