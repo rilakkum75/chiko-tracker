@@ -97,7 +97,7 @@
   }
 
   /* STAT CARDS */
-  .stats { display: flex; gap: 10px; margin: 0 16px 16px; }
+  .stats { display: flex; gap: 8px; margin: 0 16px 16px; }
   .stat-card {
     flex: 1; background: white; border-radius: 18px;
     padding: 14px 10px; box-shadow: 0 2px 16px rgba(0,0,0,.04);
@@ -336,20 +336,10 @@
 <div class="stats">
   <div class="stat-card">
     <div class="stat-value" id="statDays" style="color:#d4856a">0 日</div>
-    <div class="stat-label">出勤日数</div>
+    <div class="stat-label">今月の出勤</div>
   </div>
   <div class="stat-card">
-    <div class="stat-value" id="statTotal" style="color:#9aabbf">0m</div>
-    <div class="stat-label">累計時間</div>
-  </div>
-</div>
-<div class="stats" style="margin-top:-8px;">
-  <div class="stat-card">
-    <div class="stat-value" id="statWeek" style="color:#c4a898;font-size:18px;">0m</div>
-    <div class="stat-label">今週の労働</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-value" id="statMonth" style="color:#c4a898;font-size:18px;">0m</div>
+    <div class="stat-value" id="statMonth" style="color:#9aabbf">0m</div>
     <div class="stat-label">今月の労働</div>
   </div>
 </div>
@@ -441,10 +431,6 @@
       <div class="stat-card" style="flex:1">
         <div class="stat-value" id="weeklyStatWeek" style="color:#d4856a;font-size:18px;">0m</div>
         <div class="stat-label">今週の労働</div>
-      </div>
-      <div class="stat-card" style="flex:1">
-        <div class="stat-value" id="weeklyStatMonth" style="color:#9aabbf;font-size:18px;">0m</div>
-        <div class="stat-label">今月の労働</div>
       </div>
     </div>
     <div class="weekly-nav">
@@ -645,32 +631,33 @@ function render() {
   });
 
   // stats
-  const allMs = Object.values(logs).flat().reduce((s,e)=>s+e.duration,0);
-  const workDays = Object.keys(logs).filter(k=>(logs[k]||[]).length>0).length;
-  document.getElementById("statDays").textContent  = workDays+" 日";
-  document.getElementById("statTotal").textContent = fmtHM(allMs);
-
-  // 今週・今月の労働時間
   const now = new Date();
   const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const dayOfWeek = todayDate.getDay();
   const weekStart = new Date(todayDate); weekStart.setDate(todayDate.getDate() - (dayOfWeek===0?6:dayOfWeek-1));
   const weekEnd   = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 7);
 
-  let weekMs = 0, monthMs = 0;
+  let weekMs = 0, monthMs = 0, monthDays = 0;
   Object.keys(logs).forEach(k => {
     const d = new Date(k);
     const entries = logs[k] || [];
     const ms = entries.reduce((s,e)=>s+e.duration, 0);
     if (d >= weekStart && d < weekEnd) weekMs += ms;
-    if (d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth()) monthMs += ms;
+    if (d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth()) {
+      monthMs += ms;
+      if (entries.length > 0) monthDays++;
+    }
   });
-  // 出勤中の経過時間も加算
   if (active) {
     const d = new Date(active.startTime);
     if (d >= weekStart && d < weekEnd) weekMs += elapsed;
     if (d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth()) monthMs += elapsed;
   }
+
+  const allMs = Object.values(logs).flat().reduce((s,e)=>s+e.duration,0);
+  const workDays = Object.keys(logs).filter(k=>(logs[k]||[]).length>0).length;
+  document.getElementById("statDays").textContent  = monthDays+" 日";
+  document.getElementById("statTotal") && (document.getElementById("statTotal").textContent = fmtHM(allMs));
 
   const weekEl  = document.getElementById("statWeek");
   const monthEl = document.getElementById("statMonth");
