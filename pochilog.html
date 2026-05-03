@@ -890,6 +890,17 @@ function renderWeekly() {
   const fmt = (d) => `${d.getMonth()+1}/${d.getDate()}`;
   document.getElementById("weekTitle").textContent = `${fmt(ws)}（月）〜${fmt(we)}（日）`;
 
+  // その週の合計労働時間を計算
+  let thisWeekMs = 0;
+  for(let i = 0; i < 7; i++) {
+    const d = new Date(ws); d.setDate(ws.getDate() + i);
+    const key = toKey(d);
+    const entries = logs[key] || [];
+    thisWeekMs += entries.reduce((s,e) => s + e.duration, 0);
+  }
+  const weeklyWeekEl = document.getElementById("weeklyStatWeek");
+  if (weeklyWeekEl) weeklyWeekEl.textContent = fmtHM(thisWeekMs);
+
   const list = document.getElementById("weeklyList");
   list.innerHTML = "";
 
