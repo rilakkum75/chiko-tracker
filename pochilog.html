@@ -316,10 +316,7 @@
     <div class="working-badge" id="workingBadge" style="display:none">WORKING</div>
   </div>
   <div class="header-info">
-    <div style="font-size:11px;font-weight:700;color:#c4a898;letter-spacing:.1em;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;">
-      ぽちlog
-      <button id="syncBtn" onclick="manualSync()" style="background:none;border:1.5px solid #e8ddd8;border-radius:99px;padding:2px 10px;font-size:11px;color:#c4a898;cursor:pointer;font-family:inherit;">🔄 同期</button>
-    </div>
+    <div style="font-size:11px;font-weight:700;color:#c4a898;letter-spacing:.1em;margin-bottom:4px;">ぽちlog</div>
     <div class="name-row">
       <span class="name-text" id="nameText" onclick="startEditName()"></span>
       <input class="name-input" id="nameInput" style="display:none" placeholder="名前を入力"
@@ -1087,174 +1084,19 @@ function delEntry(key, idx) {
 function prevWeek() { weekBase.setDate(weekBase.getDate() - 7); renderWeekly(); }
 function nextWeek() { weekBase.setDate(weekBase.getDate() + 7); renderWeekly(); }
 
-// Firebase用にグローバル公開
-window.selectLoc = selectLoc;
-window.renderName = renderName;
-window.render = render;
-window.renderWeekly = renderWeekly;
-// ※ アプリ起動はFirebase読み込み後に行うのでここでは呼ばない
-</script>
-
-<!-- Firebase同期 -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
-  import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-database.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyAeAH_VkJieqZyK1pg62n25aSa8IIgS7xo",
-    authDomain: "work-bcaf3.firebaseapp.com",
-    databaseURL: "https://work-bcaf3-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "work-bcaf3",
-    storageBucket: "work-bcaf3.firebasestorage.app",
-    messagingSenderId: "767679616408",
-    appId: "1:767679616408:web:f9ca20017dfe5cc56987ed"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-  const KEYS = ["chiko_v5", "chiko_memo_v5", "chiko_name_v5", "chiko_pos_v5", "chiko_active_v5"];
-
-  // ローカルとFirebaseのlogsをマージ（両方の日付を合体）
-  function mergeLogs(localLogs, remoteLogs) {
-    const merged = Object.assign({}, remoteLogs);
-    Object.keys(localLogs).forEach(date => {
-      if (!merged[date]) {
-        merged[date] = localLogs[date];
-      } else {
-        if (localLogs[date].length >= merged[date].length) {
-          merged[date] = localLogs[date];
-        }
-      }
-    });
-    return merged;
-  }
-
-  // ローカルとFirebaseのmemosをマージ
-  function mergeMemos(localMemos, remoteMemos) {
-    const merged = Object.assign({}, remoteMemos);
-    Object.keys(localMemos).forEach(date => {
-      if (localMemos[date]) merged[date] = localMemos[date];
-    });
-    return merged;
-  }
-
-  // Firebaseに保存
-  function saveToFirebase() {
-    const data = {};
-    KEYS.forEach(k => { const v = localStorage.getItem(k); if (v) data[k] = v; });
-    return set(ref(db, "chikoData"), data);
-  }
-
-  // Firebaseから読み込んでアプリに反映（マージあり）
-  function loadFromFirebase(doMerge) {
-    return get(ref(db, "chikoData")).then(snapshot => {
-      const data = snapshot.val();
-      if (!data) return;
-
-      if (doMerge) {
-        // logsをマージ
-        const localLogs  = JSON.parse(localStorage.getItem("chiko_v5") || "{}");
-        const remoteLogs = JSON.parse(data["chiko_v5"] || "{}");
-        data["chiko_v5"] = JSON.stringify(mergeLogs(localLogs, remoteLogs));
-
-        // memosもマージ
-        const localMemos  = JSON.parse(localStorage.getItem("chiko_memo_v5") || "{}");
-        const remoteMemos = JSON.parse(data["chiko_memo_v5"] || "{}");
-        data["chiko_memo_v5"] = JSON.stringify(mergeMemos(localMemos, remoteMemos));
-      }
-
-      KEYS.forEach(k => {
-        if (data[k]) localStorage.setItem(k, data[k]);
-        else localStorage.removeItem(k);
-      });
-
-      // 変数を更新
-      logs  = JSON.parse(localStorage.getItem("chiko_v5") || "{}");
-      memos = JSON.parse(localStorage.getItem("chiko_memo_v5") || "{}");
-      name  = localStorage.getItem("chiko_name_v5") || "";
-
-      // activeを更新
-      const a = localStorage.getItem("chiko_active_v5");
-      if (a) {
-        try {
-          const parsed = JSON.parse(a);
-          clearInterval(tickTimer);
-          active = parsed;
-          elapsed = Date.now() - parsed.startTime;
-          tickTimer = setInterval(() => { elapsed = Date.now() - active.startTime; render(); }, 1000);
-        } catch(e) {}
-      } else {
-        clearInterval(tickTimer);
-        active = null;
-        elapsed = 0;
-      }
-      renderName();
-      render();
-      if (document.getElementById("weeklyList")) renderWeekly();
-    });
-  }
-
-  // 手動同期ボタン（マージしてからFirebaseに保存）
-  window.manualSync = function() {
-    const btn = document.getElementById("syncBtn");
-    btn.textContent = "同期中…";
-    btn.style.color = "#d4856a";
-    loadFromFirebase(true).then(() => {
-      // マージ後のデータをFirebaseに保存
-      return saveToFirebase();
-    }).then(() => {
-      btn.textContent = "✓ 完了";
-      btn.style.color = "#7ab87a";
-      setTimeout(() => {
-        btn.textContent = "🔄 同期";
-        btn.style.color = "#c4a898";
-      }, 2000);
-    }).catch(() => {
-      btn.textContent = "🔄 同期";
-      btn.style.color = "#c4a898";
-    });
-  };
-
-  // 起動時：マージなしでFirebaseから読み込む
-  loadFromFirebase(false).then(() => {
-    const savedActive = localStorage.getItem("chiko_active_v5");
-    if (savedActive && !active) {
-      try {
-        const a = JSON.parse(savedActive);
-        active = a;
-        elapsed = Date.now() - a.startTime;
-        tickTimer = setInterval(() => { elapsed = Date.now() - active.startTime; render(); }, 1000);
-      } catch(e) {}
-    }
-    selectLoc("clinic");
-    renderName();
-    render();
-  }).catch(() => {
-    const savedActive = localStorage.getItem("chiko_active_v5");
-    if (savedActive) {
-      try {
-        const a = JSON.parse(savedActive);
-        active = a;
-        elapsed = Date.now() - a.startTime;
-        tickTimer = setInterval(() => { elapsed = Date.now() - active.startTime; render(); }, 1000);
-      } catch(e) {}
-    }
-    selectLoc("clinic");
-    renderName();
-    render();
-  });
-
-  // 出勤・退勤操作時に自動保存
-  const _origSet = localStorage.setItem.bind(localStorage);
-  const _origDel = localStorage.removeItem.bind(localStorage);
-  localStorage.setItem = function(key, value) {
-    _origSet(key, value);
-    if (KEYS.includes(key)) saveToFirebase();
-  };
-  localStorage.removeItem = function(key) {
-    _origDel(key);
-    if (KEYS.includes(key)) saveToFirebase();
-  };
+// アプリ起動
+const savedActive = localStorage.getItem("chiko_active_v5");
+if (savedActive) {
+  try {
+    const a = JSON.parse(savedActive);
+    active = a;
+    elapsed = Date.now() - a.startTime;
+    tickTimer = setInterval(() => { elapsed = Date.now() - active.startTime; render(); }, 1000);
+  } catch(e) {}
+}
+selectLoc("clinic");
+renderName();
+render();
 </script>
 </body>
 </html>
